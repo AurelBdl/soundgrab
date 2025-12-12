@@ -4,12 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 3000",
-    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "format": "biome format",
     "lint": "biome lint",
-    "check": "biome check"
+    "check": "biome check",
+    "build": "vite build",
+    "start": "NODE_ENV=production node .output/server/index.mjs"
   },
   "engines": { "node": "22.13.1" },
   "dependencies": {
