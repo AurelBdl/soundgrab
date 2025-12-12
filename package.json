@@ -11,7 +11,7 @@
     "lint": "biome lint",
     "check": "biome check"
   },
-  "engines": { "node": "22.15.1" },
+  "engines": { "node": "22.13.1" },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-label": "^2.1.8",
