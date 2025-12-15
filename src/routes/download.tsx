@@ -6,11 +6,9 @@ import {
 	Loader2,
 	X,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
 	getSoundCloudTrackInfo,
 	getSoundCloudTrackPreview,
@@ -32,15 +30,15 @@ function DownloadPage() {
 	const [loadingPreviews, setLoadingPreviews] = useState<Set<string>>(
 		new Set(),
 	);
-	const [downloadAsZip, setDownloadAsZip] = useState(false);
+	const [downloadAsZip] = useState(true);
 	const debounceTimers = useRef<Map<number, NodeJS.Timeout>>(new Map());
-	const downloadAsZipId = useId();
 
 	useEffect(() => {
 		// Charger le client ID et access token depuis localStorage
 		const savedClientId = localStorage.getItem("soundcloud_client_id") || "";
 		const savedAccessToken =
 			localStorage.getItem("soundcloud_access_token") || "";
+
 		setClientId(savedClientId);
 		setAccessToken(savedAccessToken);
 	}, []);
@@ -396,7 +394,7 @@ function DownloadPage() {
 				{urls.some((url) => url.trim() !== "") && (
 					<div className="mt-8">
 						<div className="flex items-center justify-end gap-4">
-							<div className="flex items-center gap-2">
+							{/* <div className="flex items-center gap-2">
 								<Checkbox
 									id={downloadAsZipId}
 									checked={downloadAsZip}
@@ -410,7 +408,7 @@ function DownloadPage() {
 								>
 									Download as ZIP file
 								</Label>
-							</div>
+							</div> */}
 							<Button
 								onClick={handleDownload}
 								disabled={isDownloading || !clientId}
@@ -429,13 +427,14 @@ function DownloadPage() {
 								)}
 							</Button>
 						</div>
-						{!clientId && (
-							<p className="text-sm text-muted-foreground mt-4 text-center">
-								⚠️ Please configure your Soundcloud Client ID and Access Token in
-								settings
-							</p>
-						)}
 					</div>
+				)}
+
+				{(!clientId || !accessToken) && (
+					<p className="text-sm text-muted-foreground mt-4 text-center">
+						⚠️ Please configure your Soundcloud Client ID and Access Token in
+						settings
+					</p>
 				)}
 			</div>
 		</div>

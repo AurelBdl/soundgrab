@@ -36,26 +36,25 @@ type StreamsResponse = {
 };
 
 const API_BASE = "https://api-v2.soundcloud.com";
-const CORS_PROXY =
-	// Laisser vide pour tenter en direct (évite certains 404 sur des URLs signées)
-	// Exemple de proxy: https://corsproxy.io/? ou https://api.allorigins.win/raw?url=
-	import.meta.env.VITE_CORS_PROXY ?? "";
 
-const withProxy = (url: string) => (CORS_PROXY ? `${CORS_PROXY}${url}` : url);
+// Proxy CORS par défaut pour les appels SoundCloud côté client.
+// Surchargable via VITE_CORS_PROXY si besoin.
+const DEFAULT_CORS_PROXY = "https://corsproxy.io/?";
+const CORS_PROXY = import.meta.env.VITE_CORS_PROXY ?? DEFAULT_CORS_PROXY;
+
+const withProxy = (url: string) =>
+	CORS_PROXY ? `${CORS_PROXY}${encodeURIComponent(url)}` : url;
 
 const fetchWithCors = async (url: string, init?: RequestInit) => {
-	// 1) tentative directe
-	const direct = await fetch(url, init).catch(() => undefined);
-	if (direct?.ok) return direct;
-
-	// 2) si échec et proxy dispo, retente via proxy
+	// Si un proxy est défini, on passe systématiquement par lui pour éviter les erreurs CORS
 	if (CORS_PROXY) {
 		const proxied = await fetch(withProxy(url), init).catch(() => undefined);
-		if (proxied?.ok) return proxied;
-		if (proxied) return proxied; // retourne la réponse même non-ok si dispo
+		if (proxied) return proxied;
+		throw new Error("Échec réseau");
 	}
 
-	// 3) retourne la réponse directe même non-ok si existante
+	// Fallback théorique sans proxy (si jamais CORS est autorisé côté API)
+	const direct = await fetch(url, init).catch(() => undefined);
 	if (direct) return direct;
 	throw new Error("Échec réseau");
 };

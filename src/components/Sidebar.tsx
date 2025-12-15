@@ -83,21 +83,18 @@ function SidebarContent({
 							<X className="size-4" />
 						</Button>
 					) : (
-						<Button
-							size="icon"
-							variant="ghost"
-							onClick={onToggleCollapse}
-							aria-label={
-								computedCollapsed ? "Étendre la sidebar" : "Rétrécir la sidebar"
-							}
-							className="hidden lg:inline-flex"
-						>
-							{computedCollapsed ? (
-								<ChevronsRight className="size-4" />
-							) : (
+						// Bouton desktop : uniquement pour fermer la sidebar étendue.
+						!computedCollapsed && (
+							<Button
+								size="icon"
+								variant="ghost"
+								onClick={onToggleCollapse}
+								aria-label="Rétrécir la sidebar"
+								className="hidden lg:inline-flex cursor-pointer"
+							>
 								<ChevronsLeft className="size-4" />
-							)}
-						</Button>
+							</Button>
+						)
 					)}
 				</div>
 			</header>
@@ -179,8 +176,8 @@ export default function Sidebar() {
 
 	return (
 		<>
-			{/* Bouton mobile */}
-			<div className="fixed left-4 top-4 z-50 lg:hidden">
+			{/* Bouton mobile (sous le panneau mobile en z-index) */}
+			<div className="fixed left-4 top-4 z-10 lg:hidden">
 				<Button
 					size="icon"
 					variant="outline"
@@ -219,13 +216,30 @@ export default function Sidebar() {
 			</div>
 
 			{/* Sidebar desktop */}
-			<aside className="hidden lg:relative lg:flex lg:h-screen lg:flex-col lg:border-r lg:bg-card/70 lg:backdrop-blur">
-				<SidebarContent
-					computedCollapsed={computedCollapsed}
-					isMobile={false}
-					onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
-				/>
-			</aside>
+			<div className="group/sidebar hidden lg:relative lg:flex lg:h-screen">
+				{/* Bloc visuel de la sidebar (au-dessus du bouton en z-index) */}
+				<aside className="relative z-10 flex h-full flex-col border-r bg-card/70 backdrop-blur">
+					<SidebarContent
+						computedCollapsed={computedCollapsed}
+						isMobile={false}
+						onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
+					/>
+				</aside>
+
+				{/* Bouton de réouverture qui apparaît au hover, glissant de la gauche vers la droite
+				    depuis le bord droit de la sidebar, mais sous la sidebar en z-index */}
+				{computedCollapsed && (
+					<Button
+						size="icon"
+						variant="outline"
+						onClick={() => setIsCollapsed(false)}
+						aria-label="Réouvrir la sidebar"
+						className="absolute top-6 right-0 hidden z-0 cursor-pointer -translate-x-full translate-y-4 opacity-0 rounded-r-full border-r-0 shadow-md transition-all duration-300 ease-out group-hover/sidebar:translate-x-full group-hover/sidebar:translate-y-0 group-hover/sidebar:opacity-100 lg:flex"
+					>
+						<ChevronsRight className="size-4" />
+					</Button>
+				)}
+			</div>
 		</>
 	);
 }

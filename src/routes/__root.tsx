@@ -28,8 +28,12 @@ export const Route = createRootRoute({
 			},
 		],
 	}),
-
 	shellComponent: RootDocument,
+	notFoundComponent: () => (
+		<div className="p-4 text-sm text-muted-foreground">
+			Page introuvable
+		</div>
+	),
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
