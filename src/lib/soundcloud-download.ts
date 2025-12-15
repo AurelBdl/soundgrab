@@ -1,5 +1,3 @@
-import { createServerFn } from "@tanstack/react-start";
-
 export interface TrackInfo {
 	success: boolean;
 	trackTitle?: string;
@@ -38,6 +36,12 @@ type StreamsResponse = {
 };
 
 const API_BASE = "https://api-v2.soundcloud.com";
+const CORS_PROXY =
+	// Définir VITE_CORS_PROXY="" pour tenter sans proxy
+	// Exemple: https://corsproxy.io/? ou https://api.allorigins.win/raw?url=
+	import.meta.env.VITE_CORS_PROXY ?? "https://corsproxy.io/?";
+
+const withProxy = (url: string) => (CORS_PROXY ? `${CORS_PROXY}${url}` : url);
 
 const buildSearchParams = (params: Record<string, string | undefined>) => {
 	const search = new URLSearchParams();
@@ -49,64 +53,58 @@ const buildSearchParams = (params: Record<string, string | undefined>) => {
 	return search.toString();
 };
 
-const resolveTrackServer = createServerFn({ method: "POST" })
-	.inputValidator((data: TrackRequest) => {
-		if (!data.url || !data.clientId) {
-			throw new Error("URL et Client ID requis");
-		}
-		return data;
-	})
-	.handler(async ({ data }): Promise<SoundcloudTrack> => {
-		const query = buildSearchParams({
-			url: data.url,
-			client_id: data.clientId,
-			oauth_token: data.accessToken,
-		});
-
-		const response = await fetch(`${API_BASE}/resolve?${query}`);
-
-		if (!response.ok) {
-			throw new Error(
-				`Impossible de récupérer la ressource (${response.status})`,
-			);
-		}
-
-		return response.json();
+const resolveTrack = async ({
+	url,
+	clientId,
+	accessToken,
+}: TrackRequest): Promise<SoundcloudTrack> => {
+	const query = buildSearchParams({
+		url,
+		client_id: clientId,
+		oauth_token: accessToken,
 	});
 
-const fetchStreamUrlServer = createServerFn({ method: "POST" })
-	.inputValidator((data: TrackRequest & { trackId: number }) => {
-		if (!data.trackId || !data.clientId) {
-			throw new Error("Track ID et Client ID requis");
-		}
-		return data;
-	})
-	.handler(async ({ data }): Promise<string> => {
-		const query = buildSearchParams({
-			client_id: data.clientId,
-			oauth_token: data.accessToken,
-		});
+	const response = await fetch(withProxy(`${API_BASE}/resolve?${query}`));
 
-		const response = await fetch(
-			`${API_BASE}/i1/tracks/${data.trackId}/streams?${query}`,
+	if (!response.ok) {
+		throw new Error(
+			`Impossible de récupérer la ressource (${response.status})`,
 		);
+	}
 
-		if (!response.ok) {
-			throw new Error(
-				`Impossible de récupérer le flux audio (${response.status})`,
-			);
-		}
+	return response.json();
+};
 
-		const streams: StreamsResponse = await response.json();
-
-		return (
-			streams.http_mp3_128_url ||
-			streams.hls_mp3_128_url ||
-			streams.progressive?.[0]?.url ||
-			streams.hls?.[0]?.url ||
-			""
-		);
+const fetchStreamUrl = async (
+	trackId: number,
+	clientId: string,
+	accessToken?: string,
+): Promise<string> => {
+	const query = buildSearchParams({
+		client_id: clientId,
+		oauth_token: accessToken,
 	});
+
+	const response = await fetch(
+		withProxy(`${API_BASE}/i1/tracks/${trackId}/streams?${query}`),
+	);
+
+	if (!response.ok) {
+		throw new Error(
+			`Impossible de récupérer le flux audio (${response.status})`,
+		);
+	}
+
+	const streams: StreamsResponse = await response.json();
+
+	return (
+		streams.http_mp3_128_url ||
+		streams.hls_mp3_128_url ||
+		streams.progressive?.[0]?.url ||
+		streams.hls?.[0]?.url ||
+		""
+	);
+};
 
 export const getSoundCloudTrackInfo = async ({
 	url,
@@ -118,13 +116,9 @@ export const getSoundCloudTrackInfo = async ({
 			throw new Error("URL et Client ID requis");
 		}
 
-		// Proxy via server (même origine) pour éviter le blocage CORS côté client
-		const track = await resolveTrackServer({
-			data: { url, clientId, accessToken },
-		});
-		const streamUrl = await fetchStreamUrlServer({
-			data: { trackId: track.id, clientId, accessToken, url },
-		});
+		// Appels côté client (avec proxy CORS si défini)
+		const track = await resolveTrack({ url, clientId, accessToken });
+		const streamUrl = await fetchStreamUrl(track.id, clientId, accessToken);
 
 		if (!streamUrl) {
 			throw new Error("URL de téléchargement introuvable");
@@ -154,9 +148,7 @@ export const getSoundCloudTrackPreview = async ({
 			throw new Error("URL et Client ID requis");
 		}
 
-		const track = await resolveTrackServer({
-			data: { url, clientId, accessToken },
-		});
+		const track = await resolveTrack({ url, clientId, accessToken });
 
 		return {
 			success: true,
