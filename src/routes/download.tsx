@@ -59,7 +59,9 @@ function DownloadPage() {
 
 		try {
 			const preview = await getSoundCloudTrackPreview({
-				data: { url, clientId, accessToken },
+				url,
+				clientId,
+				accessToken,
 			});
 			setTrackPreviews((prev) => {
 				const newMap = new Map(prev);
@@ -132,7 +134,9 @@ function DownloadPage() {
 		try {
 			// Get track information and download URL from server
 			const result = await getSoundCloudTrackInfo({
-				data: { url, clientId, accessToken },
+				url,
+				clientId,
+				accessToken,
 			});
 
 			if (result.success && result.downloadUrl && result.trackTitle) {
@@ -182,7 +186,9 @@ function DownloadPage() {
 				try {
 					// Get track information and download URL from server
 					const result = await getSoundCloudTrackInfo({
-						data: { url, clientId, accessToken },
+						url,
+						clientId,
+						accessToken,
 					});
 
 					if (result.success && result.downloadUrl && result.trackTitle) {
@@ -225,7 +231,9 @@ function DownloadPage() {
 				try {
 					// Get track information and download URL from server
 					const result = await getSoundCloudTrackInfo({
-						data: { url, clientId, accessToken },
+						url,
+						clientId,
+						accessToken,
 					});
 
 					if (result.success && result.downloadUrl && result.trackTitle) {

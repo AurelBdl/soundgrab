@@ -2,12 +2,8 @@ import { useEffect, useState } from "react";
 
 type Theme = "light" | "dark" | "system";
 
-function getInitialTheme(): Theme {
-	if (typeof window === "undefined") return "system";
-	return (localStorage.getItem("theme") as Theme) || "system";
-}
-
 function applyTheme(themeValue: Theme) {
+	if (typeof window === "undefined") return;
 	const root = window.document.documentElement;
 	root.classList.remove("light", "dark");
 
@@ -23,12 +19,16 @@ function applyTheme(themeValue: Theme) {
 }
 
 export function useTheme() {
-	const [theme, setTheme] = useState<Theme>(getInitialTheme);
+	// Toujours initialiser avec "system" pour éviter les différences SSR/client
+	const [theme, setTheme] = useState<Theme>("system");
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
+		// Charger le thème depuis localStorage après le montage
+		const savedTheme = (localStorage.getItem("theme") as Theme) || "system";
+		setTheme(savedTheme);
+		applyTheme(savedTheme);
 		setMounted(true);
-		applyTheme(theme);
 	}, []);
 
 	useEffect(() => {
