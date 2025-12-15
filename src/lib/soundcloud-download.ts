@@ -37,11 +37,28 @@ type StreamsResponse = {
 
 const API_BASE = "https://api-v2.soundcloud.com";
 const CORS_PROXY =
-	// Définir VITE_CORS_PROXY="" pour tenter sans proxy
-	// Exemple: https://corsproxy.io/? ou https://api.allorigins.win/raw?url=
-	import.meta.env.VITE_CORS_PROXY ?? "https://corsproxy.io/?";
+	// Laisser vide pour tenter en direct (évite certains 404 sur des URLs signées)
+	// Exemple de proxy: https://corsproxy.io/? ou https://api.allorigins.win/raw?url=
+	import.meta.env.VITE_CORS_PROXY ?? "";
 
 const withProxy = (url: string) => (CORS_PROXY ? `${CORS_PROXY}${url}` : url);
+
+const fetchWithCors = async (url: string, init?: RequestInit) => {
+	// 1) tentative directe
+	const direct = await fetch(url, init).catch(() => undefined);
+	if (direct?.ok) return direct;
+
+	// 2) si échec et proxy dispo, retente via proxy
+	if (CORS_PROXY) {
+		const proxied = await fetch(withProxy(url), init).catch(() => undefined);
+		if (proxied?.ok) return proxied;
+		if (proxied) return proxied; // retourne la réponse même non-ok si dispo
+	}
+
+	// 3) retourne la réponse directe même non-ok si existante
+	if (direct) return direct;
+	throw new Error("Échec réseau");
+};
 
 const buildSearchParams = (params: Record<string, string | undefined>) => {
 	const search = new URLSearchParams();
@@ -64,7 +81,7 @@ const resolveTrack = async ({
 		oauth_token: accessToken,
 	});
 
-	const response = await fetch(withProxy(`${API_BASE}/resolve?${query}`));
+	const response = await fetchWithCors(`${API_BASE}/resolve?${query}`);
 
 	if (!response.ok) {
 		throw new Error(
@@ -85,25 +102,56 @@ const fetchStreamUrl = async (
 		oauth_token: accessToken,
 	});
 
-	const response = await fetch(
-		withProxy(`${API_BASE}/i1/tracks/${trackId}/streams?${query}`),
+	// 1) Endpoint streams (i1)
+	const streamsResp = await fetchWithCors(
+		`${API_BASE}/i1/tracks/${trackId}/streams?${query}`,
 	);
 
-	if (!response.ok) {
+	if (streamsResp.ok) {
+		const streams: StreamsResponse = await streamsResp.json();
+		const url =
+			streams.http_mp3_128_url ||
+			streams.hls_mp3_128_url ||
+			streams.progressive?.[0]?.url ||
+			streams.hls?.[0]?.url ||
+			"";
+		if (url) return url;
+	}
+
+	// 2) Fallback: transcodings depuis /tracks/{id}
+	const trackResp = await fetchWithCors(
+		`${API_BASE}/tracks/${trackId}?${query}`,
+	);
+
+	if (!trackResp.ok) {
 		throw new Error(
-			`Impossible de récupérer le flux audio (${response.status})`,
+			`Impossible de récupérer le flux audio (${trackResp.status})`,
 		);
 	}
 
-	const streams: StreamsResponse = await response.json();
+	const trackData = (await trackResp.json()) as SoundcloudTrack & {
+		media?: {
+			transcodings?: Array<{ url?: string; format?: { protocol?: string } }>;
+		};
+	};
 
-	return (
-		streams.http_mp3_128_url ||
-		streams.hls_mp3_128_url ||
-		streams.progressive?.[0]?.url ||
-		streams.hls?.[0]?.url ||
-		""
+	const progressive = trackData.media?.transcodings?.find(
+		(t) => t.format?.protocol === "progressive",
 	);
+	if (progressive?.url) {
+		const urlResp = await fetchWithCors(
+			`${progressive.url}?client_id=${clientId}`,
+		);
+		if (!urlResp.ok) {
+			throw new Error(
+				`Impossible de récupérer l'URL progressive (${urlResp.status})`,
+			);
+		}
+		const data = (await urlResp.json()) as { url?: string };
+		if (data.url) return data.url;
+	}
+
+	throw new Error("URL de téléchargement introuvable");
 };
 
 export const getSoundCloudTrackInfo = async ({
